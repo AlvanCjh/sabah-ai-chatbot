@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sabah-bot</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+        #chat-window { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; }
+        .message { margin-bottom: 10px; }
+        .user { text-align: right; color: blue; }
+        .bot { text-align: left; color: green; white-space: pre-wrap; }
+        #chat-form { display: flex; margin-top: 10px; }
+        #chat-input { flex-grow: 1; }
+    </style>
+</head>
+<body>
+    <h1>Sabah-bot ✈️</h1>
+    <div id="chat-window"></div>
+    <form id="chat-form">
+        <input id="chat-input" type="text" placeholder="Ask about your trip to Sabah..." autocomplete="off">
+        <button type="submit">Send</button>
+    </form>
+
+    <script>
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatWindow = document.getElementById('chat-window');
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userMessage = chatInput.value;
+            if (!userMessage) return;
+
+            addMessage(userMessage, 'user');
+            chatInput.value = '';
+
+            try {
+                // Send message to our backend
+                const response = await fetch('http://127.0.0.1:5000/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: userMessage })
+                });
+
+                if (!response.ok) throw new Error('Network error');
+
+                const result = await response.json();
+
+                // Check if the backend said it's an itinerary or text
+                if (result.type === 'itinerary') {
+                    // It's JSON! Let's format it.
+                    const formattedItinerary = formatItinerary(result.data);
+                    addMessage(formattedItinerary, 'bot');
+                } else {
+                    // It's just plain text
+                    addMessage(result.data, 'bot');
+                }
+
+            } catch (error) {
+                addMessage('Sorry, something went wrong. Please try again.', 'bot');
+            }
+        });
+
+        function addMessage(message, sender) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', sender);
+            messageElement.textContent = message;
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll
+        }
+        
+        // This function turns our JSON into nice, readable text
+        function formatItinerary(itinerary) {
+            let formatted = `${itinerary.title}\n\n`;
+            itinerary.days.forEach(day => {
+                formatted += `--- ${day.theme} ---\n`;
+                formatted += `**Day ${day.day}:**\n`;
+                day.activities.forEach(act => {
+                    formatted += `  - ${act.time}: ${act.activity}\n`;
+                });
+                formatted += '\n';
+            });
+            return formatted;
+        }
+    </script>
+</body>
+</html>

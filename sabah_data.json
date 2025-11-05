@@ -1,0 +1,26 @@
+{
+  "attractions": [
+    {
+      "name": "Mount Kinabalu",
+      "location": "Kundasang",
+      "description": "Highest mountain in Malaysia. Requires a 2-day climb with a permit.",
+      "interests": ["hiking", "nature", "adventure"]
+    },
+    {
+      "name": "Sipadan Island",
+      "location": "Semporna",
+      "description": "World-famous diving spot. Permits are required and limited.",
+      "interests": ["diving", "beach", "snorkeling"]
+    },
+    {
+      "name": "Sepilok Orangutan Rehabilitation Centre",
+      "location": "Sandakan",
+      "description": "See orphaned orangutans in a semi-wild reserve.",
+      "interests": ["wildlife", "family", "nature"]
+    }
+  ],
+  "travel_times": [
+    { "from": "Kota Kinabalu", "to": "Kundasang", "time_hours": 2 },
+    { "from": "Kota Kinabalu", "to": "Sandakan", "time_hours": 6 }
+  ]
+}
