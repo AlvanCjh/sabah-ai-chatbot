@@ -1,14 +1,14 @@
+from dotenv import load_dotenv
 import os
 import google.generativeai as genai
-from flask import Flask, request, jsonify
-from dotenv import load_dotenv
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS # To allow your frontend to call this
 import json
 
 # --- 1. SETUP ---
 load_dotenv() # Load environment variables from .env
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="")
 
 CORS(app) # Allow cross-origin requests
 
@@ -16,9 +16,9 @@ CORS(app) # Allow cross-origin requests
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Create the model instance
-# We use Gemini 1.5 Pro for its larger context window and JSON mode
+# We use Gemini 2.5* Pro for its larger context window and JSON mode
 model = genai.GenerativeModel(
-    'gemini-pro',
+    'models/gemini-2.5-pro',
     # This is your "persona" from Step 4
     system_instruction="""You are 'Sabah-bot,' a friendly and expert travel planner for Sabah, Malaysia. 
     Your goal is to create a detailed, exciting, and practical day-by-day itinerary.
@@ -42,6 +42,11 @@ try:
 except FileNotFoundError:
     print("WARNING: sabah_data.json not found. AI will use general knowledge.")
     sabah_knowledge = {}
+
+# --- Serve index.html ---
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')  # serve index.html from current folder   
 
 
 # --- 3. CREATE THE API ENDPOINT ---
