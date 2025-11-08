@@ -20,11 +20,41 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel(
     'models/gemini-2.5-pro',
     # This is your "persona" from Step 4
-    system_instruction="""You are 'Sabah-bot,' a friendly and expert travel planner for Sabah, Malaysia. 
-    Your goal is to create a detailed, exciting, and practical day-by-day itinerary.
-    Always ask clarifying questions one at a time until you have enough info.
-    When you generate the final itinerary, format it *only* as a JSON object as requested.
-    If you are just chatting or asking a question, just respond as plain text."""
+    system_instruction="""You are 'Sabah-bot,' a friendly travel planner for Sabah, Malaysia.
+    
+    RULES:
+    1. Always ask clarifying questions one at a time until you have enough info.
+    2. When you have enough info, generate the itinerary.
+    3. When you generate the final itinerary, you MUST format it *ONLY* as a JSON object. 
+    4. **DO NOT** include *any* introductory text, markdown backticks (```json), or any other text outside of the JSON object itself. Your response MUST be *only* the valid JSON.
+    
+    JSON FORMAT TO FOLLOW:
+    {
+      "title": "Your 5-Day Sabah Adventure",
+      "tripDetails": {
+        "duration": "5 Days / 4 Nights",
+        "travelerProfile": "Solo Traveler",
+        "budget": "Mid-Range"
+      },
+      "days": [
+        {
+          "day": 1,
+          "theme": "Arrival & City Exploration",
+          "activities": [
+            { "time": "Afternoon", "activity": "Arrive at Kota Kinabalu (KK)." },
+            { "time": "Evening", "activity": "Dinner at the Night Market." }
+          ]
+        },
+        {
+          "day": 2,
+          "theme": "Island Hopping",
+          "activities": [
+            { "time": "Morning", "activity": "Island hopping at Tunku Abdul Rahman Park." }
+          ]
+        }
+      ]
+    }
+    """
 )
 
 # Start a new chat session (this will hold the memory)
@@ -55,37 +85,31 @@ def handle_chat():
     try:
         user_message = request.json['message']
         
-        # --- This is where RAG would happen ---
-        # 1. Search your sabah_knowledge for relevant info based on user_message
-        # 2. Build a new, augmented prompt:
-        #    augmented_prompt = f"""
-        #    User message: "{user_message}"
-        #    Here is some expert data about Sabah to help you answer:
-        #    {relevant_sabah_data}
-        #    """
-        # For now, we'll just send the message directly
-        
         # Send the message to the Gemini model
-        # The 'chat' object automatically remembers the history
         response = chat.send_message(user_message)
-        
         ai_message = response.text
         
-        ai_message_cleaned = ai_message.strip() # Start by stripping whitespace
-
-        # 1. Check if the AI wrapped its response in markdown
-        if ai_message_cleaned.startswith("```json"):
-            # 2. Remove the first line (```json) and last line (```)
-            ai_message_cleaned = '\n'.join(ai_message_cleaned.split('\n')[1:-1])
-
-        # Check if the response is JSON (our itinerary)
+        # --- New Robust JSON Extractor ---
         try:
-            # 3. Try to parse the CLEANED message
-            itinerary_json = json.loads(ai_message_cleaned) 
-            return jsonify({ "type": "itinerary", "data": itinerary_json })
+            # Find the first '{' and the last '}'
+            start_index = ai_message.find('{')
+            end_index = ai_message.rfind('}')
+            
+            if start_index != -1 and end_index != -1 and end_index > start_index:
+                # Extract the JSON string
+                json_string = ai_message[start_index:end_index+1]
+                # Try to parse it
+                itinerary_json = json.loads(json_string)
+                # If it parses, send it as an itinerary
+                return jsonify({ "type": "itinerary", "data": itinerary_json })
+            else:
+                # If no JSON block is found, treat as text
+                return jsonify({ "type": "text", "data": ai_message })
+        
         except json.JSONDecodeError:
-            # It's just a regular text message (or the original message if not JSON)
+            # If it finds a block but can't parse it, treat as text
             return jsonify({ "type": "text", "data": ai_message })
+        # --- End of New Parser ---
 
     except Exception as e:
         print(f"Error: {e}")

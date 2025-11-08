@@ -214,49 +214,41 @@
         // This function turns our JSON into nice, readable text
         function formatItinerary(data) {
             
-            // The AI's JSON is nested inside "sabah_itinerary"
-            // Let's get that object first.
-            if (!data.sabah_itinerary) {
-                console.error("Unknown JSON structure", data);
+            // 1. Check for the keys we expect from the NEW prompt
+            if (!data.title || !data.days) {
+                console.error("Unknown JSON structure. Expected 'title' and 'days'", data);
                 return "Error: Received an itinerary in an unknown format.";
             }
 
-            const itinerary = data.sabah_itinerary;
-            const details = itinerary.trip_details;
-
-            // Start building the formatted text
-            let formatted = `✨ Here is your Sabah Itinerary! ✨\n\n`;
+            // 2. Start building the formatted text
+            let formatted = `✨ ${data.title} ✨\n\n`;
             
-            // Add trip details from the JSON
-            if (details) {
-                formatted += `Trip Focus: ${details.focus}\n`;
+            // 3. Add trip details (optional)
+            if (data.tripDetails) {
+                const details = data.tripDetails;
                 formatted += `Duration: ${details.duration}\n`;
-                formatted += `Budget: ${details.budget} | Pace: ${details.pace}\n\n`;
+                if (details.travelerProfile) {
+                    formatted += `Profile: ${details.travelerProfile}\n`;
+                }
+                if (details.budget) {
+                    formatted += `Budget: ${details.budget}\n\n`;
+                }
             }
 
-            // Add the day-by-day plan
-            if (itinerary.daily_plan && itinerary.daily_plan.length > 0) {
+            // 4. Loop through the "days" array
+            data.days.forEach(day => {
+                formatted += `--- **Day ${day.day}: ${day.theme || 'Activities'}** ---\n`;
                 
-                itinerary.daily_plan.forEach(day => {
-                    // Add the Day title
-                    formatted += `--- Day ${day.day}: ${day.title} ---\n`;
-                    
-                    // Add the activities for that day
-                    if (day.activities && day.activities.length > 0) {
-                        day.activities.forEach(act => {
-                            
-                            // Use 'description' or 'activity' field (whichever exists)
-                            const activity_text = act.description || act.activity; 
-                            
-                            // Use 'time' or 'theme' field (whichever exists)
-                            const time_text = act.time || act.theme || "Activity";
-
-                            formatted += `  - ${time_text}: ${activity_text}\n`;
-                        });
-                    }
-                    formatted += '\n'; // Add a space after each day
-                });
-            }
+                if (day.activities && day.activities.length > 0) {
+                    day.activities.forEach(act => {
+                        const activity_text = act.activity || "No details provided.";
+                        const time_text = act.time || "Activity";
+                        formatted += `  - **${time_text}:** ${activity_text}\n`;
+                    });
+                }
+                formatted += '\n'; // Add a space after each day
+            });
+            
             return formatted;
         }
     </script>
