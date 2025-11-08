@@ -5,22 +5,133 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sabah-bot</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
-        #chat-window { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; }
-        .message { margin-bottom: 10px; }
-        .user { text-align: right; color: blue; }
-        .bot { text-align: left; color: green; white-space: pre-wrap; }
-        #chat-form { display: flex; margin-top: 10px; }
-        #chat-input { flex-grow: 1; }
+        /* General Body Styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Main Chat Container */
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            height: 80vh; /* Responsive height */
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Chat Header */
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            padding: 20px;
+            margin: 0;
+            background-color: #f9f9f9;
+            border-bottom: 1px solid #e0e0e0;
+            color: #444;
+        }
+
+        /* Chat Message Window */
+        #chat-window {
+            flex-grow: 1;
+            overflow-y: auto; /* Makes it scrollable */
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px; /* Adds space between messages */
+        }
+
+        /* General Message Styling */
+        .message {
+            padding: 12px 18px;
+            border-radius: 20px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            max-width: 75%;
+        }
+
+        /* User Message Styling (Blue bubble) */
+        .user {
+            background-color: #007bff;
+            color: white;
+            align-self: flex-end; /* Aligns to the right */
+            border-bottom-right-radius: 5px; /* Bubble shape */
+        }
+
+        /* Bot Message Styling (Gray bubble) */
+        .bot {
+            background-color: #e9e9eb;
+            color: black;
+            align-self: flex-start; /* Aligns to the left */
+            border-bottom-left-radius: 5px; /* Bubble shape */
+            
+            /* This makes the itinerary (with \n) format correctly */
+            white-space: pre-wrap; 
+        }
+
+        /* Chat Input Form Area */
+        #chat-form {
+            display: flex;
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #f9f9f9;
+            gap: 10px; /* Space between input and button */
+        }
+
+        /* Text Input Field */
+        #chat-input {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            padding: 12px 15px;
+            border-radius: 20px; /* Pill shape */
+            font-size: 1rem;
+        }
+        #chat-input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        /* Send Button */
+        #chat-form button {
+            border: none;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 20px; /* Pill shape */
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        #chat-form button:hover {
+            background-color: #0056b3;
+        }
+
     </style>
 </head>
 <body>
-    <h1>Sabah-bot ✈️</h1>
-    <div id="chat-window"></div>
-    <form id="chat-form">
-        <input id="chat-input" type="text" placeholder="Ask about your trip to Sabah..." autocomplete="off">
-        <button type="submit">Send</button>
-    </form>
+
+    <div id="chat-container">
+        <h1>Sabah-bot ✈️</h1>
+        <div id="chat-window">
+            </div>
+        <form id="chat-form">
+            <input id="chat-input" type="text" placeholder="Ask about your trip to Sabah..." autocomplete="off">
+            <button type="submit">Send</button>
+        </form>
+    </div>
 
     <script>
         const chatForm = document.getElementById('chat-form');
@@ -34,6 +145,7 @@
 
             addMessage(userMessage, 'user');
             chatInput.value = '';
+            showLoadingIndicator(true); // Show loading dots
 
             try {
                 // Send message to our backend
@@ -43,9 +155,17 @@
                     body: JSON.stringify({ message: userMessage })
                 });
 
-                if (!response.ok) throw new Error('Network error');
+                showLoadingIndicator(false); // Hide loading dots
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
 
                 const result = await response.json();
+
+                if (result.error) {
+                    throw new Error(result.error);
+                }
 
                 // Check if the backend said it's an itinerary or text
                 if (result.type === 'itinerary') {
@@ -58,7 +178,9 @@
                 }
 
             } catch (error) {
-                addMessage('Sorry, something went wrong. Please try again.', 'bot');
+                console.error('Fetch Error:', error);
+                showLoadingIndicator(false); // Hide loading on error
+                addMessage('Sorry, something went wrong. Please try again. (Check the Flask console for errors)', 'bot');
             }
         });
 
@@ -70,17 +192,71 @@
             chatWindow.scrollTop = chatWindow.scrollHeight; // Auto-scroll
         }
         
+        // This function shows/hides a "..." loading bubble
+        function showLoadingIndicator(isLoading) {
+            let loadingMsg = document.getElementById('loading');
+            if (isLoading) {
+                if (!loadingMsg) {
+                    loadingMsg = document.createElement('div');
+                    loadingMsg.id = 'loading';
+                    loadingMsg.classList.add('message', 'bot');
+                    loadingMsg.textContent = '...';
+                    chatWindow.appendChild(loadingMsg);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                }
+            } else {
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+            }
+        }
+        
         // This function turns our JSON into nice, readable text
-        function formatItinerary(itinerary) {
-            let formatted = `${itinerary.title}\n\n`;
-            itinerary.days.forEach(day => {
-                formatted += `--- ${day.theme} ---\n`;
-                formatted += `**Day ${day.day}:**\n`;
-                day.activities.forEach(act => {
-                    formatted += `  - ${act.time}: ${act.activity}\n`;
+        function formatItinerary(data) {
+            
+            // The AI's JSON is nested inside "sabah_itinerary"
+            // Let's get that object first.
+            if (!data.sabah_itinerary) {
+                console.error("Unknown JSON structure", data);
+                return "Error: Received an itinerary in an unknown format.";
+            }
+
+            const itinerary = data.sabah_itinerary;
+            const details = itinerary.trip_details;
+
+            // Start building the formatted text
+            let formatted = `✨ Here is your Sabah Itinerary! ✨\n\n`;
+            
+            // Add trip details from the JSON
+            if (details) {
+                formatted += `Trip Focus: ${details.focus}\n`;
+                formatted += `Duration: ${details.duration}\n`;
+                formatted += `Budget: ${details.budget} | Pace: ${details.pace}\n\n`;
+            }
+
+            // Add the day-by-day plan
+            if (itinerary.daily_plan && itinerary.daily_plan.length > 0) {
+                
+                itinerary.daily_plan.forEach(day => {
+                    // Add the Day title
+                    formatted += `--- Day ${day.day}: ${day.title} ---\n`;
+                    
+                    // Add the activities for that day
+                    if (day.activities && day.activities.length > 0) {
+                        day.activities.forEach(act => {
+                            
+                            // Use 'description' or 'activity' field (whichever exists)
+                            const activity_text = act.description || act.activity; 
+                            
+                            // Use 'time' or 'theme' field (whichever exists)
+                            const time_text = act.time || act.theme || "Activity";
+
+                            formatted += `  - ${time_text}: ${activity_text}\n`;
+                        });
+                    }
+                    formatted += '\n'; // Add a space after each day
                 });
-                formatted += '\n';
-            });
+            }
             return formatted;
         }
     </script>
